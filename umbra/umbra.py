@@ -90,6 +90,10 @@ class UmbraWorker:
         self.logger.debug('sending message to {}: {}'.format(websock, msg))
         websock.send(msg)
 
+        msg = dumps(dict(method="Network.setExtraHTTPHeaders", params={"headers": {"DNT":"1"}}, id=next(self.command_id)))
+        self.logger.debug('sending message to {}: {}'.format(websock, msg))
+        websock.send(msg)
+
         msg = dumps(dict(method="Page.navigate", id=next(self.command_id), params={"url": self.url}))
         self.logger.debug('sending message to {}: {}'.format(websock, msg))
         websock.send(msg)
