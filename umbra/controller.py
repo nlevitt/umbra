@@ -11,9 +11,8 @@ from umbra.browser import BrowserPool, BrowsingException
 class AmqpBrowserController:
     """
     Consumes amqp messages representing requests to browse urls, from the
-    specified amqp queue (default: "urls") on the specified amqp exchange
-    (default: "umbra"). Incoming amqp message is a json object with 3
-    attributes:
+    specified amqp queue (default: "umbra.urls"). Incoming amqp message is a
+    json object with 3 attributes:
 
       {
         "clientId": "umbra.client.123",
@@ -25,7 +24,7 @@ class AmqpBrowserController:
 
     "clientId" uniquely identifies the client of umbra. Umbra uses the clientId
     as the amqp routing key, to direct information via amqp back to the client.
-    It sends this information on the same specified amqp exchange (default:
+    It sends this information on the specified amqp exchange (default:
     "umbra").
 
     Each url requested in the browser is published to amqp this way. The
@@ -46,7 +45,7 @@ class AmqpBrowserController:
 
     def __init__(self, amqp_url='amqp://guest:guest@localhost:5672/%2f',
             chrome_exe='chromium-browser', max_active_browsers=1, 
-            queue_name='urls', exchange_name='umbra'):
+            queue_name='umbra.urls', exchange_name='umbra'):
         self.amqp_url = amqp_url
         self.queue_name = queue_name
         self.exchange_name = exchange_name

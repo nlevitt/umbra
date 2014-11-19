@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # vim: set sw=4 et:
+
 import os
 import sys
 import argparse
 import logging
 import socket
 import umbra
-from kombu import Connection, Exchange, Queue
+import kombu
 
 arg_parser = argparse.ArgumentParser(prog=os.path.basename(__file__),
         description='drain-queue - consume messages from AMQP queue',
@@ -15,12 +16,12 @@ arg_parser.add_argument('-u', '--url', dest='amqp_url', default='amqp://guest:gu
         help='URL identifying the AMQP server to talk to')
 arg_parser.add_argument('--exchange', dest='amqp_exchange', default='umbra',
         help='AMQP exchange name')
-arg_parser.add_argument('--queue', dest='amqp_queue', default='urls',
+arg_parser.add_argument('--queue', dest='amqp_queue', default='umbra.urls',
         help='AMQP queue name')
-arg_parser.add_argument('-n', '--no-ack', dest='no_ack', action="store_const",
-        default=False, const=True, help="leave messages on the queue (default: remove them from the queue)")
+arg_parser.add_argument('-a', '--ack', dest='ack', action="store_const",
+        default=False, const=True, help="acknowledge messages, causing them to be removed from the queue")
 arg_parser.add_argument('-r', '--run-forever', dest='run_forever', action="store_const",
-        default=False, const=True, help="run forever, waiting for new messages to appear on the queue (default: exit when all messages in the queue have been consumed)")
+        default=False, const=True, help="run forever, waiting for new messages to appear on the queue")
 arg_parser.add_argument('-v', '--verbose', dest='log_level',
         action="store_const", default=logging.INFO, const=logging.DEBUG)
 arg_parser.add_argument('--version', action='version',
@@ -34,14 +35,13 @@ def print_and_maybe_ack(body, message):
     # do this instead of print(body) so that output syntax is json, not python
     # dict (they are similar but not identical)
     print(message.body.decode('utf-8'))
-
-    if not args.no_ack:
+    if args.ack:
         message.ack()
 
-exchange = Exchange(args.amqp_exchange, 'direct', durable=True)
-queue = Queue(args.amqp_queue, exchange=exchange)
+exchange = kombu.Exchange(args.amqp_exchange, 'direct', durable=True)
+queue = kombu.Queue(args.amqp_queue, exchange=exchange)
 try:
-    with Connection(args.amqp_url) as conn:
+    with kombu.Connection(args.amqp_url) as conn:
         with conn.Consumer(queue, callbacks=[print_and_maybe_ack]) as consumer:
             consumer.qos(prefetch_count=1)
             while True:

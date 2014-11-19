@@ -23,8 +23,8 @@ if __name__ == "__main__":
     arg_parser.add_argument('-u', '--url', dest='amqp_url', default='amqp://guest:guest@localhost:5672/%2f',
             help='URL identifying the amqp server to talk to')
     arg_parser.add_argument('--exchange', dest='amqp_exchange', default='umbra',
-            help='AMQP exchange name')
-    arg_parser.add_argument('--queue', dest='amqp_queue', default='urls',
+            help='AMQP exchange to publish information to')
+    arg_parser.add_argument('--queue', dest='amqp_queue', default='umbra.urls',
             help='AMQP queue to consume urls from')
     arg_parser.add_argument('-n', '--max-browsers', dest='max_browsers', default='1',
             help='Max number of chrome instances simultaneously browsing pages')

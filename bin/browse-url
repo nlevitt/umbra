@@ -11,8 +11,6 @@ arg_parser = argparse.ArgumentParser(prog=os.path.basename(__file__),
         description='browse-url - open urls in chrome/chromium and run behaviors',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 arg_parser.add_argument('urls', metavar='URL', nargs='+', help='URL(s) to browse')
-arg_parser.add_argument('-w', '--browser-wait', dest='browser_wait', default='60',
-        help='seconds to wait for browser initialization')
 arg_parser.add_argument('-e', '--executable', dest='chrome_exe', default='chromium-browser',
         help='executable to use to invoke chrome')
 arg_parser.add_argument('-v', '--verbose', dest='log_level',

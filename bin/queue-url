@@ -6,7 +6,7 @@ import sys
 import argparse
 import logging
 import umbra
-from kombu import Connection, Exchange, Queue
+import kombu
 
 arg_parser = argparse.ArgumentParser(prog=os.path.basename(__file__),
         description='queue-url - send url to umbra via AMQP',
@@ -29,8 +29,8 @@ args = arg_parser.parse_args(args=sys.argv[1:])
 logging.basicConfig(stream=sys.stdout, level=args.log_level,
         format='%(asctime)s %(process)d %(levelname)s %(threadName)s %(name)s.%(funcName)s(%(filename)s:%(lineno)d) %(message)s')
 
-exchange = Exchange(args.amqp_exchange, 'direct', durable=True)
-with Connection(args.amqp_url) as conn:
+exchange = kombu.Exchange(args.amqp_exchange, 'direct', durable=True)
+with kombu.Connection(args.amqp_url) as conn:
     producer = conn.Producer(serializer='json')
     for url in args.urls:
         payload = {'url': url, 'metadata': {}, 'clientId': args.client_id}

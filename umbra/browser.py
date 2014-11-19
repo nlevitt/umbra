@@ -231,7 +231,7 @@ class Chrome:
 
     # returns websocket url to chrome window with about:blank loaded
     def start(self):
-        timeout_sec = 60
+        timeout_sec = 300
         new_env = os.environ.copy()
         new_env["HOME"] = self.user_home_dir
         chrome_args = [self.executable,
