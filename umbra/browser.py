@@ -20,12 +20,12 @@ class BrowserPool:
 
     BASE_PORT = 9200
 
-    def __init__(self, size=3, chrome_exe='chromium-browser'):
+    def __init__(self, size=3, chrome_exe='chromium-browser', http_proxy=None):
         self._available = set()
         self._in_use = set()
 
         for i in range(0, size):
-            browser = Browser(BrowserPool.BASE_PORT + i, chrome_exe)
+            browser = Browser(chrome_port=BrowserPool.BASE_PORT + i, chrome_exe=chrome_exe, http_proxy=http_proxy)
             self._available.add(browser)
 
         self._lock = threading.Lock()
@@ -61,10 +61,11 @@ class Browser:
 
     HARD_TIMEOUT_SECONDS = 20 * 60
 
-    def __init__(self, chrome_port=9222, chrome_exe='chromium-browser'):
+    def __init__(self, chrome_port=9222, chrome_exe='chromium-browser', http_proxy=None):
         self.command_id = itertools.count(1)
         self.chrome_port = chrome_port
         self.chrome_exe = chrome_exe
+        self.http_proxy = http_proxy
         self._behavior = None
         self._websock = None
         self._abort_browse_page = False
@@ -83,8 +84,10 @@ class Browser:
     def start(self):
         # these can raise exceptions
         self._work_dir = tempfile.TemporaryDirectory()
-        self._chrome_instance = Chrome(self.chrome_port, self.chrome_exe,
-                self._work_dir.name, os.sep.join([self._work_dir.name, "chrome-user-data"]))
+        self._chrome_instance = Chrome(port=self.chrome_port,
+                executable=self.chrome_exe, user_home_dir=self._work_dir.name,
+                user_data_dir=os.sep.join([self._work_dir.name, "chrome-user-data"]),
+                http_proxy=self.http_proxy)
         self._websocket_url = self._chrome_instance.start()
 
     def stop(self):
@@ -216,11 +219,12 @@ class Browser:
 class Chrome:
     logger = logging.getLogger(__module__ + "." + __qualname__)
 
-    def __init__(self, port, executable, user_home_dir, user_data_dir):
+    def __init__(self, port, executable, user_home_dir, user_data_dir, http_proxy=None):
         self.port = port
         self.executable = executable
         self.user_home_dir = user_home_dir
         self.user_data_dir = user_data_dir
+        self.http_proxy = http_proxy
 
     # returns websocket url to chrome window with about:blank loaded
     def __enter__(self):
@@ -231,18 +235,22 @@ class Chrome:
 
     # returns websocket url to chrome window with about:blank loaded
     def start(self):
-        timeout_sec = 300
+        timeout_sec = 30
         new_env = os.environ.copy()
         new_env["HOME"] = self.user_home_dir
-        chrome_args = [self.executable,
-                "--use-mock-keychain", # mac thing
-                "--user-data-dir={}".format(self.user_data_dir),
-                "--remote-debugging-port={}".format(self.port),
-                "--disable-web-sockets", "--disable-cache",
-                "--window-size=1100,900", "--no-default-browser-check",
-                "--disable-first-run-ui", "--no-first-run",
-                "--homepage=about:blank", "--disable-direct-npapi-requests",
-                "about:blank"]
+
+        chrome_options = [
+                 "--use-mock-keychain", # mac thing
+                 "--user-data-dir={}".format(self.user_data_dir),
+                 "--remote-debugging-port={}".format(self.port),
+                 "--disable-web-sockets", "--disable-cache",
+                 "--window-size=1100,900", "--no-default-browser-check",
+                 "--disable-first-run-ui", "--no-first-run",
+                 "--homepage=about:blank", "--disable-direct-npapi-requests"]
+        if self.http_proxy is not None:
+            chrome_options.append("--proxy-server={}".format(self.http_proxy))
+
+        chrome_args = [self.executable] + chrome_options + ["about:blank"]
         self.logger.info("running {}".format(chrome_args))
         self.chrome_process = subprocess.Popen(chrome_args, env=new_env, start_new_session=True)
         self.logger.info("chrome running, pid {}".format(self.chrome_process.pid))
