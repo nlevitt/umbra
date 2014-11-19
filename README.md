@@ -22,8 +22,7 @@ Install via pip from this repo, e.g.
     pip install git+https://github.com/internetarchive/umbra.git
 
 Umbra requires an AMQP messaging service like RabbitMQ. On Ubuntu,
-`sudo apt-get install rabbitmq-server` will install and start RabbitMQ
-at amqp://guest:guest@localhost:5672/%2f, which the default AMQP url for umbra.
+`sudo apt-get install rabbitmq-server` will install and start RabbitMQ at amqp://guest:guest@localhost:5672/%2f, which is the default AMQP url for umbra.
 
 Run
 ---
@@ -35,4 +34,20 @@ Umbra also comes with these utilities:
 * queue-url - send url to umbra via AMQP
 * drain-queue - consume messages from AMQP queue
 
+License
+-------
+
+Copyright 2014 Internet Archive
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this software except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
