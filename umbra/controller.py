@@ -44,16 +44,17 @@ class AmqpBrowserController:
     logger = logging.getLogger(__module__ + "." + __qualname__)
 
     def __init__(self, amqp_url='amqp://guest:guest@localhost:5672/%2f',
-            chrome_exe='chromium-browser', max_active_browsers=1, 
+            chrome_exe='chromium-browser', max_active_browsers=1,
             queue_name='umbra.urls', exchange_name='umbra',
-            browser_http_proxy=None):
+            browser_http_proxy=None, ignore_certificate_errors=False):
         self.amqp_url = amqp_url
         self.queue_name = queue_name
         self.exchange_name = exchange_name
         self.max_active_browsers = max_active_browsers
 
         self._browser_pool = BrowserPool(size=max_active_browsers,
-                chrome_exe=chrome_exe, http_proxy=browser_http_proxy)
+                chrome_exe=chrome_exe, http_proxy=browser_http_proxy,
+                ignore_certificate_errors=ignore_certificate_errors)
 
     def start(self):
         self._browsing_threads = set()

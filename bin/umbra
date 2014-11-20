@@ -29,6 +29,9 @@ if __name__ == "__main__":
             help='Max number of chrome instances simultaneously browsing pages')
     arg_parser.add_argument('--browser-http-proxy', dest='browser_http_proxy', default=None,
             help='Browser http proxy host:port')
+    arg_parser.add_argument('--ignore-certificate-errors',
+            dest='ignore_certificate_errors', action='store_true',
+            help='Make browser ignore certificate errors')
     arg_parser.add_argument('-v', '--verbose', dest='log_level',
             action="store_const", default=logging.INFO, const=logging.DEBUG)
     arg_parser.add_argument('--version', action='version',
@@ -43,7 +46,8 @@ if __name__ == "__main__":
     controller = umbra.Umbra(args.amqp_url, args.chrome_exe, 
             max_active_browsers=int(args.max_browsers),
             exchange_name=args.amqp_exchange, queue_name=args.amqp_queue,
-            browser_http_proxy=args.browser_http_proxy)
+            browser_http_proxy=args.browser_http_proxy,
+            ignore_certificate_errors=args.ignore_certificate_errors)
 
     def browserdump_str(pp, b):
         x = []

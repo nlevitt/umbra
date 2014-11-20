@@ -21,12 +21,14 @@ class BrowserPool:
 
     BASE_PORT = 9200
 
-    def __init__(self, size=3, chrome_exe='chromium-browser', http_proxy=None):
+    def __init__(self, size=3, chrome_exe='chromium-browser', http_proxy=None, ignore_certificate_errors=False):
         self._available = set()
         self._in_use = set()
 
         for i in range(0, size):
-            browser = Browser(chrome_port=BrowserPool.BASE_PORT + i, chrome_exe=chrome_exe, http_proxy=http_proxy)
+            browser = Browser(chrome_port=BrowserPool.BASE_PORT + i,
+                    chrome_exe=chrome_exe, http_proxy=http_proxy,
+                    ignore_certificate_errors=ignore_certificate_errors)
             self._available.add(browser)
 
         self._lock = threading.Lock()
@@ -62,11 +64,12 @@ class Browser:
 
     HARD_TIMEOUT_SECONDS = 20 * 60
 
-    def __init__(self, chrome_port=9222, chrome_exe='chromium-browser', http_proxy=None):
+    def __init__(self, chrome_port=9222, chrome_exe='chromium-browser', http_proxy=None, ignore_certificate_errors=False):
         self.command_id = itertools.count(1)
         self.chrome_port = chrome_port
         self.chrome_exe = chrome_exe
         self.http_proxy = http_proxy
+        self.ignore_certificate_errors = ignore_certificate_errors
         self._behavior = None
         self._websock = None
         self._abort_browse_page = False
@@ -90,7 +93,8 @@ class Browser:
         self._chrome_instance = Chrome(port=self.chrome_port,
                 executable=self.chrome_exe, user_home_dir=self._work_dir.name,
                 user_data_dir=os.sep.join([self._work_dir.name, "chrome-user-data"]),
-                http_proxy=http_proxy or self.http_proxy)
+                http_proxy=http_proxy or self.http_proxy,
+                ignore_certificate_errors=self.ignore_certificate_errors)
         self._websocket_url = self._chrome_instance.start()
 
     def stop(self):
@@ -231,12 +235,13 @@ class Browser:
 class Chrome:
     logger = logging.getLogger(__module__ + "." + __qualname__)
 
-    def __init__(self, port, executable, user_home_dir, user_data_dir, http_proxy=None):
+    def __init__(self, port, executable, user_home_dir, user_data_dir, http_proxy=None, ignore_certificate_errors=False):
         self.port = port
         self.executable = executable
         self.user_home_dir = user_home_dir
         self.user_data_dir = user_data_dir
         self.http_proxy = http_proxy
+        self.ignore_certificate_errors = ignore_certificate_errors
 
     # returns websocket url to chrome window with about:blank loaded
     def __enter__(self):
@@ -261,6 +266,8 @@ class Chrome:
                  "--homepage=about:blank", "--disable-direct-npapi-requests"]
         if self.http_proxy is not None:
             chrome_options.append("--proxy-server={}".format(self.http_proxy))
+        if self.ignore_certificate_errors:
+            chrome_options.append("--ignore-certificate-errors")
 
         chrome_args = [self.executable] + chrome_options + ["about:blank"]
         self.logger.info("running {}".format(chrome_args))
