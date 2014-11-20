@@ -13,6 +13,7 @@ import signal
 import tempfile
 import os
 import socket
+import re
 from umbra.behaviors import Behavior
 
 class BrowserPool:
@@ -81,13 +82,15 @@ class Browser:
     def __exit__(self, *args):
         self.stop()
 
-    def start(self):
+    def start(self, http_proxy=None):
+        """If set, http_proxy takes precedence over the one passed in to the
+        constructor."""
         # these can raise exceptions
         self._work_dir = tempfile.TemporaryDirectory()
         self._chrome_instance = Chrome(port=self.chrome_port,
                 executable=self.chrome_exe, user_home_dir=self._work_dir.name,
                 user_data_dir=os.sep.join([self._work_dir.name, "chrome-user-data"]),
-                http_proxy=self.http_proxy)
+                http_proxy=http_proxy or self.http_proxy)
         self._websocket_url = self._chrome_instance.start()
 
     def stop(self):
@@ -97,7 +100,7 @@ class Browser:
     def abort_browse_page(self):
         self._abort_browse_page = True
 
-    def browse_page(self, url, on_request=None):
+    def browse_page(self, url, on_request=None, extra_http_headers=None):
         """Synchronously browses a page and runs behaviors. 
 
         Raises BrowsingException if browsing the page fails in a non-critical
@@ -105,14 +108,15 @@ class Browser:
         """
         self.url = url
         self.on_request = on_request
+        self.extra_http_headers = extra_http_headers
 
         self._websock = websocket.WebSocketApp(self._websocket_url,
                 on_open=self._visit_page, on_message=self._handle_message)
 
         import random
-        threadName = "WebsockThread{}-{}".format(self.chrome_port,
+        thread_name = "WebsockThread{}-{}".format(self.chrome_port,
                 ''.join((random.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(6))))
-        websock_thread = threading.Thread(target=self._websock.run_forever, name=threadName, kwargs={'ping_timeout':0.5})
+        websock_thread = threading.Thread(target=self._websock.run_forever, name=thread_name, kwargs={'ping_timeout':0.5})
         websock_thread.start()
         self._start = time.time()
         aborted = False
@@ -166,6 +170,13 @@ class Browser:
         # disable google analytics, see _handle_message() where breakpoint is caught "Debugger.paused"
         self.send_to_chrome(method="Debugger.setBreakpointByUrl", params={"lineNumber": 1, "urlRegex":"https?://www.google-analytics.com/analytics.js"})
 
+        if self.extra_http_headers:
+            extra_headers = {}
+            for header in self.extra_http_headers:
+                key, value = re.split(r':\s*', header, maxsplit=1)
+                extra_headers[key] = value
+            self.send_to_chrome(method="Network.setExtraHTTPHeaders", params={"headers":extra_headers})
+
         # navigate to the page!
         self.send_to_chrome(method="Page.navigate", params={"url": self.url})
 
@@ -196,9 +207,8 @@ class Browser:
         elif "method" in message and message["method"] == "Debugger.paused":
             # We hit the breakpoint set in visit_page. Get rid of google
             # analytics script!
-
             self.logger.debug("debugger paused! message={}".format(message))
-            scriptId = message['params']['callFrames'][0]['location']['scriptId']
+            scriptId = message["params"]["callFrames"][0]["location"]["scriptId"]
 
             # replace script
             self.send_to_chrome(method="Debugger.setScriptSource", params={"scriptId": scriptId, "scriptSource":"console.log('google analytics is no more!');"})
@@ -208,6 +218,8 @@ class Browser:
         elif "result" in message:
             if self._behavior and self._behavior.is_waiting_on_result(message['id']):
                 self._behavior.notify_of_result(message)
+        elif "error" in message:
+            self.logger.error("error message from {} - {}".format(websock.url, message))
         # elif "method" in message and message["method"] in ("Network.dataReceived", "Network.responseReceived", "Network.loadingFinished"):
         #     pass
         # elif "method" in message:

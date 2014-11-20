@@ -96,19 +96,20 @@ class AmqpBrowserController:
         while not self._consumer_stop.is_set() and time.time() - start < timeout and not self._reconnect_requested:
             try:
                 browser = self._browser_pool.acquire() # raises KeyError if none available
-                browser.start()
 
                 def callback(body, message):
                     try:
-                        client_id, url, metadata = body['clientId'], body['url'], body['metadata']
+                        client_id, url, metadata = body["clientId"], body["url"], body["metadata"]
+                        extra_properties = body.get("extraProperties") or {}
                     except:
-                        self.logger.error("unable to decipher message {}".format(message), exc_info=True)
-                        self.logger.error("discarding bad message")
+                        self.logger.error("discarding indecipherable message {}".format(message), exc_info=True)
                         message.reject()
-                        browser.stop()
                         self._browser_pool.release(browser)
                         return
-                    self._start_browsing_page(browser, message, client_id, url, metadata)
+
+                    self._start_browsing_page(browser, message, client_id, url, metadata,
+                            http_proxy=extra_properties.get("browserHttpProxy"),
+                            extra_http_headers=extra_properties.get("extraHttpHeaders"))
 
                 consumer.callbacks = [callback]
 
@@ -122,16 +123,12 @@ class AmqpBrowserController:
                         self.logger.error("problem consuming messages from AMQP, will try reconnecting after active browsing finishes", exc_info=True)
                         self._reconnect_requested = True
 
-                    if self._consumer_stop.is_set() or time.time() - start >= timeout or self._reconnect_requested:
-                        browser.stop()
+                    if (self._consumer_stop.is_set() or time.time() - start >= timeout or self._reconnect_requested):
                         self._browser_pool.release(browser)
                         break
 
             except KeyError:
                 # no browsers available
-                time.sleep(0.5)
-            except:
-                self.logger.critical("problem with browser initialization", exc_info=True)
                 time.sleep(0.5)
             finally:
                 consumer.callbacks = None
@@ -173,7 +170,7 @@ class AmqpBrowserController:
                 time.sleep(0.5)
                 self.logger.error("attempting to reopen amqp connection")
 
-    def _start_browsing_page(self, browser, message, client_id, url, parent_url_metadata):
+    def _start_browsing_page(self, browser, message, client_id, url, parent_url_metadata, http_proxy=None, extra_http_headers=None):
         def on_request(chrome_msg):
             payload = chrome_msg['params']['request']
             payload['parentUrl'] = url
@@ -184,9 +181,10 @@ class AmqpBrowserController:
                 publish(payload, exchange=self._exchange, routing_key=client_id)
 
         def browse_page_sync():
-            self.logger.info('browser={} client_id={} url={}'.format(browser, client_id, url))
+            self.logger.info('browser={} client_id={} url={} extra_http_headers={}'.format(browser, client_id, url, extra_http_headers))
             try:
-                browser.browse_page(url, on_request=on_request)
+                browser.start(http_proxy=http_proxy)
+                browser.browse_page(url, on_request=on_request, extra_http_headers=extra_http_headers)
                 message.ack()
             except BrowsingException as e:
                 self.logger.warn("browsing did not complete normally, requeuing url {} - {}".format(url, e))
